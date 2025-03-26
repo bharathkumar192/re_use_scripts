@@ -54,26 +54,26 @@ MODELS=\`[
 ]\`
 EOL
 
-echo "📦 Setting up npm..."
-if ! command -v npm &> /dev/null; then
-    echo "npm not found, attempting to use npx directly from Node.js"
-    mkdir -p ~/.npm-global
-    export PATH=~/.npm-global/bin:$PATH
-    echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
+# echo "📦 Setting up npm..."
+# if ! command -v npm &> /dev/null; then
+#     echo "npm not found, attempting to use npx directly from Node.js"
+#     mkdir -p ~/.npm-global
+#     export PATH=~/.npm-global/bin:$PATH
+#     echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
     
-    if command -v npx &> /dev/null; then
-        echo "Using npx from Node.js"
-    else
-        echo "Installing npm using Node.js mechanism"
-        NODE_PATH=$(which node)
-        NODE_DIR=$(dirname "$NODE_PATH")
-        if [ -f "$NODE_DIR/npm" ]; then
-            ln -sf "$NODE_DIR/npm" /usr/local/bin/npm
-        else
-            curl -L https://www.npmjs.com/install.sh | sh
-        fi
-    fi
-fi
+#     if command -v npx &> /dev/null; then
+#         echo "Using npx from Node.js"
+#     else
+#         echo "Installing npm using Node.js mechanism"
+#         NODE_PATH=$(which node)
+#         NODE_DIR=$(dirname "$NODE_PATH")
+#         if [ -f "$NODE_DIR/npm" ]; then
+#             ln -sf "$NODE_DIR/npm" /usr/local/bin/npm
+#         else
+#             curl -L https://www.npmjs.com/install.sh | sh
+#         fi
+#     fi
+# fi
 
 echo "📚 Installing npm dependencies..."
 if command -v npm &> /dev/null; then
