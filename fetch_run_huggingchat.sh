@@ -106,6 +106,11 @@ PORT=7860
 HOST=0.0.0.0
 # Use in-memory database instead of MongoDB
 MONGODB_URL=
+# Cookie settings to fix 403 error
+COOKIE_SECURE=false
+COOKIE_SAMESITE=lax
+# Set proper origin
+PUBLIC_ORIGIN=http://localhost:7860
 # App configuration
 PUBLIC_APP_NAME="My Chat UI"
 PUBLIC_APP_DESCRIPTION="My personal AI chat assistant interface"
