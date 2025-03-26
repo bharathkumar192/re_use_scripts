@@ -1,11 +1,7 @@
 #!/bin/bash
 
-
-
 set -e
-
 echo "🔧 Starting Chat UI setup..."
-
 if [ ! -f "package.json" ]; then
   echo "❌ Error: This script must be run from the chat-ui directory"
   echo "Please run: cd chat-ui && bash setup-chatui.sh"
