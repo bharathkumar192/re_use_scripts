@@ -33,17 +33,23 @@ else
     apt-get update
     apt-get install -y build-essential cmake git
     
-    echo "🔄 Cloning and building llama.cpp..."
+    echo "🔄 Cloning and building llama.cpp with CMake..."
     cd /tmp
     git clone https://github.com/ggerganov/llama.cpp.git
     cd llama.cpp
-    make
+    
+    # Use CMake to build as per the new requirements
+    mkdir -p build
+    cd build
+    cmake ..
+    cmake --build . --config Release
     
     # Copy the binaries to a location in PATH
-    cp -f llama-server /usr/local/bin/
-    cp -f main /usr/local/bin/llama
+    cp -f bin/llama-server /usr/local/bin/
+    cp -f bin/main /usr/local/bin/llama
     
-    cd -  # Return to previous directory
+    cd - # Return to llama.cpp directory
+    cd - # Return to original directory
     LLAMACPP_AVAILABLE=true
     echo "✅ llama.cpp has been installed."
   fi
@@ -179,61 +185,14 @@ EOL
   echo "✅ Added remote model configuration"
 fi
 
-# Check if npm is available through the node installation
-echo "📦 Setting up npm..."
-if ! command -v npm &> /dev/null; then
-    echo "npm not found, attempting to use npx directly from Node.js"
-    # Create a simple npm script
-    mkdir -p ~/.npm-global
-    export PATH=~/.npm-global/bin:$PATH
-    echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
-    
-    # Try to install npm using Node.js
-    if command -v npx &> /dev/null; then
-        echo "Using npx from Node.js"
-    else
-        echo "Installing npm using Node.js mechanism"
-        # Sometimes we can use the bundled npm with Node.js
-        NODE_PATH=$(which node)
-        NODE_DIR=$(dirname "$NODE_PATH")
-        if [ -f "$NODE_DIR/npm" ]; then
-            ln -sf "$NODE_DIR/npm" /usr/local/bin/npm
-        else
-            # Last resort - download and use npm installation script
-            curl -L https://www.npmjs.com/install.sh | sh
-        fi
-    fi
-fi
-
-# Install npm dependencies
-echo "📚 Installing npm dependencies..."
-# Use npm if it's available now
-if command -v npm &> /dev/null; then
-    npm install
-else
-    # Last resort: Try using npx
-    echo "Attempting to use npx directly..."
-    npx --yes npm install
-fi
-
-# Increase Node.js memory limit for build process
-export NODE_OPTIONS="--max-old-space-size=4096"
-
 # Build the application
 echo "🏗️ Building the application..."
-if command -v npm &> /dev/null; then
-    npm run build
-    # Start the application
-    echo "🚀 Starting Chat UI on http://localhost:7860"
-    echo "Press Ctrl+C to stop the server"
-    npm run preview -- --host 0.0.0.0 --port 7860
-else
-    npx --yes npm run build
-    # Start the application with npx
-    echo "🚀 Starting Chat UI on http://localhost:7860"
-    echo "Press Ctrl+C to stop the server"
-    npx --yes npm run preview -- --host 0.0.0.0 --port 7860
-fi
+npm run build
+
+# Start the application
+echo "🚀 Starting Chat UI on http://localhost:7860"
+echo "Press Ctrl+C to stop the server"
+npm run preview -- --host 0.0.0.0 --port 7860
 
 # Cleanup when the script exits
 cleanup() {
