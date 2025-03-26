@@ -1,20 +1,13 @@
 #!/bin/bash
-
 set -e
+
 echo "🔧 Starting Chat UI setup..."
+
 if [ ! -f "package.json" ]; then
   echo "❌ Error: This script must be run from the chat-ui directory"
-  echo "Please run: cd chat-ui && bash setup-chatui.sh"
+  echo "Please run: cd chat-ui && bash fetch_run_huggingchat.sh"
   exit 1
 fi
-
-echo "📦 Installing system dependencies..."
-apt-get update
-apt-get install -y nodejs npm curl
-
-echo "ℹ️ Node.js version: $(node --version)"
-echo "ℹ️ npm version: $(npm --version)"
-
 
 echo "⚙️ Creating configuration..."
 cat > .env.local << EOL
@@ -61,17 +54,46 @@ MODELS=\`[
 ]\`
 EOL
 
+echo "📦 Setting up npm..."
+if ! command -v npm &> /dev/null; then
+    echo "npm not found, attempting to use npx directly from Node.js"
+    mkdir -p ~/.npm-global
+    export PATH=~/.npm-global/bin:$PATH
+    echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
+    
+    if command -v npx &> /dev/null; then
+        echo "Using npx from Node.js"
+    else
+        echo "Installing npm using Node.js mechanism"
+        NODE_PATH=$(which node)
+        NODE_DIR=$(dirname "$NODE_PATH")
+        if [ -f "$NODE_DIR/npm" ]; then
+            ln -sf "$NODE_DIR/npm" /usr/local/bin/npm
+        else
+            curl -L https://www.npmjs.com/install.sh | sh
+        fi
+    fi
+fi
 
 echo "📚 Installing npm dependencies..."
-npm install
+if command -v npm &> /dev/null; then
+    npm install
+else
+    echo "Attempting to use npx directly..."
+    npx --yes npm install
+fi
 
 # export NODE_OPTIONS="--max-old-space-size=4096"
 
-# Build 
 echo "🏗️ Building the application..."
-npm run build
-
-# Start 
-echo "🚀 Starting Chat UI on http://localhost:7860"
-echo "Press Ctrl+C to stop the server"
-npm run preview -- --host 0.0.0.0 --port 7860
+if command -v npm &> /dev/null; then
+    npm run build
+    echo "🚀 Starting Chat UI on http://localhost:7860"
+    echo "Press Ctrl+C to stop the server"
+    npm run preview -- --host 0.0.0.0 --port 7860
+else
+    npx --yes npm run build
+    echo "🚀 Starting Chat UI on http://localhost:7860"
+    echo "Press Ctrl+C to stop the server"
+    npx --yes npm run preview -- --host 0.0.0.0 --port 7860
+fi
