@@ -16,40 +16,48 @@ if [ ! -f "package.json" ]; then
   exit 1
 fi
 
-# Check for llama.cpp and offer to install it
+# Check for llama.cpp presence more thoroughly
 echo "🔍 Checking for llama.cpp..."
 LLAMACPP_AVAILABLE=false
 
-if command -v llama-server &> /dev/null; then
+# Check if llama-server exists in PATH or if llama.cpp directory exists
+if command -v llama-server &> /dev/null || [ -d "/workspace/llama.cpp" ] || [ -d "llama.cpp" ]; then
   LLAMACPP_AVAILABLE=true
-  echo "✅ llama.cpp is installed."
+  echo "✅ llama.cpp is available in your environment."
+  
+  # If llama-server not in PATH but directory exists, try to set PATH
+  if ! command -v llama-server &> /dev/null; then
+    if [ -d "/workspace/llama.cpp/build/bin" ]; then
+      export PATH="/workspace/llama.cpp/build/bin:$PATH"
+      echo "Added /workspace/llama.cpp/build/bin to PATH"
+    elif [ -d "llama.cpp/build/bin" ]; then
+      export PATH="$(pwd)/llama.cpp/build/bin:$PATH"
+      echo "Added $(pwd)/llama.cpp/build/bin to PATH"
+    fi
+  fi
 else
-  echo "llama.cpp is not installed."
-  echo "Would you like to attempt to install llama.cpp? (y/n)"
+  echo "llama.cpp is not detected."
+  echo "Would you like to install llama.cpp? (y/n)"
   read -r install_llamacpp
   
   if [[ "$install_llamacpp" == "y" ]]; then
-    echo "📦 Installing llama.cpp dependencies..."
-    apt-get update
-    apt-get install -y build-essential cmake git
+    echo "📦 Installing llama.cpp..."
     
-    echo "🔄 Cloning and building llama.cpp with CMake..."
-    cd /tmp
+    # Clone and build llama.cpp outside the current directory
+    cd /workspace
     git clone https://github.com/ggerganov/llama.cpp.git
     cd llama.cpp
     
-    # Use CMake to build as per the new requirements
-    mkdir -p build
-    cd build
+    # Build using CMake
+    mkdir -p build && cd build
     cmake ..
     cmake --build . --config Release
     
-    # Copy the binaries to a location in PATH
-    cp -f bin/llama-server /usr/local/bin/
-    cp -f bin/main /usr/local/bin/llama
+    # Add to PATH
+    export PATH="/workspace/llama.cpp/build/bin:$PATH"
     
-    cd - # Return to llama.cpp directory
-    cd - # Return to original directory
+    # Return to the original directory
+    cd /workspace/chat-ui
     LLAMACPP_AVAILABLE=true
     echo "✅ llama.cpp has been installed."
   fi
@@ -64,15 +72,13 @@ download_model() {
     if [[ "$download_model" == "y" ]]; then
       echo "📥 Downloading Phi-3-mini-4k-instruct-q4.gguf..."
       mkdir -p models
-      cd models
       
-      # Download a small model (Phi-3-mini) - adjust URL as needed
-      if [ ! -f "Phi-3-mini-4k-instruct-q4.gguf" ]; then
-        curl -L -O "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf"
+      # Download a small model (Phi-3-mini)
+      if [ ! -f "models/Phi-3-mini-4k-instruct-q4.gguf" ]; then
+        curl -L -o "models/Phi-3-mini-4k-instruct-q4.gguf" "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf"
       fi
       
-      cd ..
-      echo "✅ Model downloaded."
+      echo "✅ Model downloaded to models/Phi-3-mini-4k-instruct-q4.gguf"
       return 0
     fi
   fi
@@ -108,14 +114,28 @@ EOL
 
 # Add model configuration based on user choice
 if [ "$USE_LOCAL_MODEL" = true ]; then
-  # Start llama.cpp server in the background
-  echo "🚀 Starting llama.cpp server..."
+  # Check if model file exists
   if [ -f "models/Phi-3-mini-4k-instruct-q4.gguf" ]; then
-    llama-server --model models/Phi-3-mini-4k-instruct-q4.gguf -c 2048 --port 8080 &
-    LLAMA_SERVER_PID=$!
+    # Start llama.cpp server in the background
+    echo "🚀 Starting llama.cpp server..."
     
-    # Add local model configuration
-    cat >> .env.local << EOL
+    # Use the appropriate llama-server command based on availability
+    if command -v llama-server &> /dev/null; then
+      llama-server --model models/Phi-3-mini-4k-instruct-q4.gguf -c 2048 --port 8080 &
+    elif [ -f "/workspace/llama.cpp/build/bin/llama-server" ]; then
+      /workspace/llama.cpp/build/bin/llama-server --model models/Phi-3-mini-4k-instruct-q4.gguf -c 2048 --port 8080 &
+    elif [ -f "llama.cpp/build/bin/llama-server" ]; then
+      $(pwd)/llama.cpp/build/bin/llama-server --model models/Phi-3-mini-4k-instruct-q4.gguf -c 2048 --port 8080 &
+    else
+      echo "⚠️ Could not find llama-server. Falling back to remote models."
+      USE_LOCAL_MODEL=false
+    fi
+    
+    if [ "$USE_LOCAL_MODEL" = true ]; then
+      LLAMA_SERVER_PID=$!
+      
+      # Add local model configuration
+      cat >> .env.local << EOL
 # Local model configuration with llama.cpp
 MODELS=\`[
   {
@@ -138,7 +158,8 @@ MODELS=\`[
   }
 ]\`
 EOL
-    echo "✅ Added local model configuration with llama.cpp"
+      echo "✅ Added local model configuration with llama.cpp"
+    fi
   else
     echo "⚠️ Model file not found. Falling back to remote models."
     USE_LOCAL_MODEL=false
